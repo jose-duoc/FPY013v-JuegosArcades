@@ -213,30 +213,55 @@
 
         // Leer archivos de GitHub
         async function obtenerArchivos() {
-            const url = `https://api.github.com/repos/${USUARIO_GITHUB}/${REPOSITORIO_GITHUB}/contents/juegos`;
-            try {
-                const res = await fetch(url);
-                if (!res.ok) throw new Error("No se encontró la carpeta 'juegos'");
-                const archivos = await res.json();
-                listaUI.innerHTML = "";
-                
-                const scripts = archivos.filter(f => f.name.endsWith('.py') && f.name !== '__init__.py');
-                
-                scripts.forEach(archivo => {
-                    const li = document.createElement('li');
-                    const nombreLimpio = archivo.name.replace('.py', '').replace('_', ' ').toUpperCase();
-                    li.textContent = nombreLimpio;
-                    li.addEventListener('click', () => {
-                        document.querySelectorAll('#lista-juegos li').forEach(el => el.classList.remove('activo'));
-                        li.classList.add('activo');
-                        descargarCodigo(archivo.download_url, nombreLimpio, archivo.name);
-                    });
-                    listaUI.appendChild(li);
-                });
-            } catch (err) {
-                listaUI.innerHTML = `<div class='loading' style='color:#f87171;'>Error: ${err.message}</div>`;
+    // Forzamos que no use caché de GitHub para evitar respuestas viejas
+    const url = `https://api.github.com/repos/${USUARIO_GITHUB}/${REPOSITORIO_GITHUB}/contents/juegos?nocache=${new Date().getTime()}`;
+    
+    try {
+        console.log("Consultando API de GitHub en:", url);
+        const res = await fetch(url);
+        
+        if (!res.ok) {
+            if (res.status === 404) {
+                throw new Error(`No se encontró la carpeta 'juegos'. Asegúrate de que el usuario [${USUARIO_GITHUB}] y el repositorio [${REPOSITORIO_GITHUB}] estén bien escritos en las constantes del HTML.`);
+            } else if (res.status === 403) {
+                throw new Error("Límite de peticiones de GitHub alcanzado (Rate Limit). Espera unos minutos o usa otra red.");
+            } else {
+                throw new Error(`Error de GitHub: ${res.status} ${res.statusText}`);
             }
         }
+        
+        const archivos = await res.json();
+        console.log("Archivos detectados en GitHub:", archivos);
+        
+        listaUI.innerHTML = "";
+        
+        // Filtramos asegurando que termine en .py sin importar mayúsculas/minúsculas
+        const scripts = archivos.filter(f => f.name.toLowerCase().endsWith('.py') && f.name.toLowerCase() !== '__init__.py');
+        
+        if (scripts.length === 0) {
+            listaUI.innerHTML = "<div class='loading'>La carpeta 'juegos' existe en GitHub, pero está vacía o no tiene archivos .py</div>";
+            return;
+        }
+        
+        scripts.forEach(archivo => {
+            const li = document.createElement('li');
+            // Formateo visual del nombre del archivo por mientras
+            const nombreLimpio = archivo.name.replace(/\.py$/i, '').replace(/_/g, ' ').toUpperCase();
+            li.textContent = `🎮 ${nombreLimpio}`;
+            
+            li.addEventListener('click', () => {
+                document.querySelectorAll('#lista-juegos li').forEach(el => el.classList.remove('activo'));
+                li.classList.add('activo');
+                descargarCodigo(archivo.download_url, nombreLimpio, archivo.name);
+            });
+            listaUI.appendChild(li);
+        });
+        
+    } catch (err) {
+        console.error("Error completo:", err);
+        listaUI.innerHTML = `<div class='loading' style='color:#f87171;'>⚠️ ${err.message}</div>`;
+    }
+}
 
         async function descargarCodigo(url, estudiante, archivo) {
             tituloUI.textContent = archivo;
