@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcade FPY013V - Visor de Código</title>
+    <title>Arcade FPY013V - Ejecutor en Vivo</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
     <style>
         :root {
             --bg-color: #0f172a;
             --sidebar-bg: #1e293b;
             --text-color: #f8fafc;
-            --accent-color: #38bdf8;
-            --accent-hover: #0ea5e9;
+            --accent-color: #10b981; /* Verde consola */
+            --accent-hover: #059669;
         }
 
         body {
@@ -25,7 +26,7 @@
             overflow: hidden;
         }
 
-        /* Panel Izquierdo: Lista de Alumnos */
+        /* Barra Lateral */
         #sidebar {
             width: 300px;
             background-color: var(--sidebar-bg);
@@ -60,14 +61,12 @@
             border-radius: 6px;
             cursor: pointer;
             transition: all 0.2s ease;
-            font-size: 0.95rem;
         }
 
         #lista-juegos li:hover {
             background-color: var(--accent-color);
             color: #0f172a;
             font-weight: bold;
-            transform: translateX(5px);
         }
 
         #lista-juegos li.activo {
@@ -76,67 +75,107 @@
             font-weight: bold;
         }
 
-        /* Panel Derecho: Visor de Código */
-        #visor-contenido {
-            flex-grow: 1;
-            padding: 30px;
+        /* Contenedor Principal Central (Código) */
+        #centro {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            overflow: hidden;
+            padding: 20px;
             box-sizing: border-box;
-        }
-
-        #header-visor {
-            margin-bottom: 15px;
-        }
-
-        #titulo-juego {
-            margin: 0 0 5px 0;
-            font-size: 1.8rem;
-        }
-
-        #autor-juego {
-            margin: 0;
-            color: #94a3b8;
-            font-style: italic;
+            border-right: 1px solid #334155;
+            overflow: hidden;
         }
 
         #area-codigo {
             flex-grow: 1;
             overflow: auto;
             border-radius: 8px;
+            background: #1d1f21;
+        }
+
+        pre { margin: 0 !important; height: 100%; }
+
+        /* Consola Derecha (Ejecución en Vivo) */
+        #consola-panel {
+            width: 400px;
+            background-color: #000000;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        #output-consola {
+            flex-grow: 1;
+            background-color: #050505;
+            border: 1px solid #22c55e;
+            color: #22c55e;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 15px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+
+        .controles-consola {
+            display: flex;
+            gap: 10px;
+        }
+
+        #input-usuario {
+            flex-grow: 1;
+            background: #111;
             border: 1px solid #334155;
-            background: #1d1f21 !important;
+            color: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
         }
 
-        pre {
-            margin: 0 !important;
-            height: 100%;
+        #btn-run {
+            background-color: var(--accent-color);
+            color: black;
+            border: none;
+            padding: 10px 20px;
+            font-weight: bold;
+            border-radius: 4px;
+            cursor: pointer;
         }
 
-        .loading {
-            text-align: center;
-            color: #94a3b8;
-            margin-top: 20px;
+        #btn-run:disabled {
+            background-color: #4b5563;
+            cursor: not-allowed;
         }
+
+        .loading { text-align: center; color: #94a3b8; }
     </style>
 </head>
 <body>
 
     <div id="sidebar">
-        <h2>🕹️ Juegos Entregados</h2>
+        <h2>🕹️ Alumnos Arcade</h2>
         <ul id="lista-juegos">
             <div class="loading">Cargando repositorio...</div>
         </ul>
     </div>
 
-    <div id="visor-contenido">
-        <div id="header-visor">
-            <h1 id="titulo-juego">Selecciona un juego</h1>
-            <p id="autor-juego">Haz clic en el menú izquierdo para revisar el código fuente en Python de tus alumnos.</p>
+    <div id="centro">
+        <div>
+            <h1 id="titulo-juego" style="margin:0 0 5px 0; font-size:1.5rem;">Selecciona un juego</h1>
+            <p id="autor-juego" style="margin:0 0 15px 0; color:#94a3b8;">Revisa el código e inicialo en la consola remota.</p>
         </div>
         <div id="area-codigo">
             <pre><code id="codigo-python" class="language-python"># El código aparecerá aquí...</code></pre>
+        </div>
+    </div>
+
+    <div id="consola-panel">
+        <h2 style="color: #22c55e; margin-bottom: 10px;">📟 Consola Interactiva Python</h2>
+        <div id="output-consola">Esperando inicialización de entorno...</div>
+        <div class="controles-consola">
+            <input type="text" id="input-usuario" placeholder="Escribe aquí y presiona Enter..." disabled>
+            <button id="btn-run" disabled>▶ JUGAR</button>
         </div>
     </div>
 
@@ -144,78 +183,171 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
 
     <script>
-        // CONFIGURACIÓN: Reemplaza con tus datos reales de GitHub
+        // CONFIGURACIÓN OBLIGATORIA DE GITHUB
         const USUARIO_GITHUB = "TU_USUARIO_DE_GITHUB"; 
         const REPOSITORIO_GITHUB = "NOMBRE_DE_TU_REPOSITORIO";
+
+        let pyodideInstance = null;
+        let codigoActual = "";
+        let resolucionInput = null;
 
         const listaUI = document.getElementById('lista-juegos');
         const tituloUI = document.getElementById('titulo-juego');
         const autorUI = document.getElementById('autor-juego');
         const codigoUI = document.getElementById('codigo-python');
+        const consolaUI = document.getElementById('output-consola');
+        const btnRun = document.getElementById('btn-run');
+        const inputUsuario = document.getElementById('input-usuario');
 
-        // 1. Leer los archivos de la carpeta 'juegos' usando la API pública de GitHub
-        async function obtenerArchivosJuegos() {
-            const url = `https://api.github.com/repos/${USUARIO_GITHUB}/${REPOSITORIO_GITHUB}/contents/juegos`;
-            
+        // Inicializar el motor de Python WebAssembly al cargar la página
+        async function inicializarPython() {
+            consolaUI.textContent = "⏳ Cargando motor de Python en el navegador...\n";
             try {
-                const respuesta = await fetch(url);
-                if (!respuesta.ok) throw new Error("No se pudo acceder a la carpeta 'juegos'");
-                
-                const archivos = await respuesta.json();
-                listaUI.innerHTML = ""; // Limpiar cargando
-                
-                // Filtrar solo archivos .py que no sean el __init__.py
-                const scriptsPython = archivos.filter(item => item.name.endsWith('.py') && item.name !== '__init__.py');
-                
-                if(scriptsPython.length === 0) {
-                    listaUI.innerHTML = "<div class='loading'>Aún no hay entregas disponibles.</div>";
-                    return;
-                }
-
-                scriptsPython.forEach(archivo => {
-                    const li = document.createElement('li');
-                    // Convertir el nombre de archivo 'juan_perez.py' en algo limpio 'Juan perez'
-                    const nombreLimpio = archivo.name.replace('.py', '').replace('_', ' ');
-                    li.textContent = nombreLimpio.toUpperCase();
-                    
-                    li.addEventListener('click', () => {
-                        // Cambiar estado activo en el menú
-                        document.querySelectorAll('#lista-juegos li').forEach(el => el.classList.remove('activo'));
-                        li.classList.add('activo');
-                        // Cargar el código fuente
-                        cargarCodigoFuente(archivo.download_url, nombreLimpio, archivo.name);
-                    });
-                    
-                    listaUI.appendChild(li);
-                });
-
-            } catch (error) {
-                listaUI.innerHTML = `<div class='loading' style='color: #ef4444;'>❌ Error: ${error.message}</div>`;
+                pyodideInstance = await loadPyodide();
+                consolaUI.textContent += "✅ ¡Motor Python Listo!\nSelecciona un juego para comenzar.";
+                btnRun.disabled = false;
+            } catch(e) {
+                consolaUI.textContent = "❌ Error al cargar Python: " + e.message;
             }
         }
 
-        // 2. Descargar el texto plano del script e incrustarlo en el visor
-        async function cargarCodigoFuente(urlDescarga, estudiante, nombreArchivo) {
-            tituloUI.textContent = `📄 ${nombreArchivo}`;
-            autorUI.textContent = `Código desarrollado por: ${estudiante}`;
-            codigoUI.textContent = "# Cargando código fuente...";
+        // Leer archivos de GitHub
+        async function obtenerArchivos() {
+            const url = `https://api.github.com/repos/${USUARIO_GITHUB}/${REPOSITORIO_GITHUB}/contents/juegos`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error("No se encontró la carpeta 'juegos'");
+                const archivos = await res.json();
+                listaUI.innerHTML = "";
+                
+                const scripts = archivos.filter(f => f.name.endsWith('.py') && f.name !== '__init__.py');
+                
+                scripts.forEach(archivo => {
+                    const li = document.createElement('li');
+                    const nombreLimpio = archivo.name.replace('.py', '').replace('_', ' ').toUpperCase();
+                    li.textContent = nombreLimpio;
+                    li.addEventListener('click', () => {
+                        document.querySelectorAll('#lista-juegos li').forEach(el => el.classList.remove('activo'));
+                        li.classList.add('activo');
+                        descargarCodigo(archivo.download_url, nombreLimpio, archivo.name);
+                    });
+                    listaUI.appendChild(li);
+                });
+            } catch (err) {
+                listaUI.innerHTML = `<div class='loading' style='color:#f87171;'>Error: ${err.message}</div>`;
+            }
+        }
+
+        async function descargarCodigo(url, estudiante, archivo) {
+            tituloUI.textContent = archivo;
+            autorUI.textContent = `Desarrollado por: ${estudiante}`;
+            codigoUI.textContent = "# Descargando archivo...";
             Prism.highlightElement(codigoUI);
 
             try {
-                const respuesta = await fetch(urlDescarga);
-                const codigoTexto = await respuesta.text();
-                
-                // Asignar el texto y forzar a la librería a pintarlo como Python
-                codigoUI.textContent = codigoTexto;
+                const res = await fetch(url);
+                codigoActual = await res.text();
+                codigoUI.textContent = codigoActual;
                 Prism.highlightElement(codigoUI);
-            } catch (error) {
-                codigoUI.textContent = `# Error al cargar el archivo: ${error.message}`;
-                Prism.highlightElement(codigoUI);
+                consolaUI.textContent = `[ ${archivo} cargado ]\nPresiona el botón "▶ JUGAR" para ejecutarlo en vivo.`;
+            } catch (e) {
+                codigoUI.textContent = "# Error al descargar";
             }
         }
 
-        // Inicializar el script al cargar la página
-        obtenerArchivosJuegos();
+        // Capturar los "print()" de Python y mandarlos a la consola HTML
+        function inicializarSalidaConsola() {
+            consolaUI.textContent = "";
+            pyodideInstance.setStdout({
+                batched: (text) => {
+                    consolaUI.textContent += text + "\n";
+                    consolaUI.scrollTop = consolaUI.scrollHeight;
+                }
+            });
+        }
+
+        // Manejar la petición "input()" de Python interceptándola desde JavaScript
+        inputUsuario.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && resolucionInput) {
+                const valor = inputUsuario.value;
+                consolaUI.textContent += valor + "\n"; // Mostrar lo que el usuario escribió
+                inputUsuario.value = "";
+                inputUsuario.disabled = true;
+                
+                let resolver = resolucionInput;
+                resolucionInput = null;
+                resolver(valor); // Devuelve el dato a Python
+            }
+        });
+
+        function simularInput(promptText) {
+            if(promptText) consolaUI.textContent += promptText;
+            consolaUI.scrollTop = consolaUI.scrollHeight;
+            inputUsuario.disabled = false;
+            inputUsuario.focus();
+            
+            return new Promise((resolve) => {
+                resolucionInput = resolve;
+            });
+        }
+
+        // Ejecutar el script del estudiante en vivo
+        btnRun.addEventListener('click', async () => {
+            if (!codigoActual) return alert("Selecciona un juego primero");
+            
+            btnRun.disabled = true;
+            inicializarSalidaConsola();
+            
+            // Inyectar la simulación de input de JS al ecosistema de Python
+            pyodideInstance.registerJsModule("js_input", { pedir_datos: simularInput });
+            
+            // Re-escribimos dinámicamente la función integrada input() de Python para que use nuestra interfaz HTML
+            const wrapperCodigo = `
+import builtins
+import js_input
+import asyncio
+
+async def custom_input(prompt=""):
+    # Llamamos a JavaScript y esperamos a que el estudiante responda
+    resultado = await js_input.pedir_datos(prompt)
+    return resultado
+
+builtins.input = custom_input
+
+# Ejecutar el código del estudiante
+async def inicio():
+    try:
+        # Cargamos el archivo del alumno
+        namespace = {}
+        exec("""${codigoActual.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"').replace(/`/g, '\\`')}""", namespace)
+        
+        # Ejecutamos su función obligatoria
+        if "ejecutar_juego" in namespace:
+            if asyncio.iscoroutinefunction(namespace["ejecutar_juego"]):
+                await namespace["ejecutar_juego"]()
+            else:
+                # Si la función llama a input(), ahora es asíncrona tras bambalinas
+                await pyodide.eval_code_async("${codigoActual.replace(/\\/g, '\\\\').replace(/"""/g, '\\"\\"\\"').replace(/`/g, '\\`')} \\nejecutar_juego()")
+        else:
+            print("⚠️ Error: No se encontró la función 'ejecutar_juego()'")
+    except Exception as err:
+        print(f"❌ Error en la ejecución: {err}")
+
+await inicio()
+`;
+            try {
+                await pyodideInstance.runPythonAsync(wrapperCodigo);
+            } catch (err) {
+                consolaUI.textContent += `\n❌ Error crítico: ${err.message}`;
+            } finally {
+                btnRun.disabled = false;
+                inputUsuario.disabled = true;
+            }
+        });
+
+        // Correr al iniciar
+        inicializarPython();
+        obtenerArchivos();
     </script>
 </body>
 </html>
