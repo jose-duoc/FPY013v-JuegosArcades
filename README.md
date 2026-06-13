@@ -27,11 +27,11 @@ cd mi_arcade_colaborativo
 # 3. Crea una rama propia con tu nombre para no trabajar directamente en 'main'
 git checkout -b feature-juego-tuNombre
 
-Paso 2: Crear tu archivo de juego
+### Paso 2: Crear tu archivo de juego
 Dirígete a la carpeta llamada juegos/.
 Crea un archivo nuevo en formato Python.
 El nombre del archivo debe ser tu primer nombre y apellido en minúsculas, separados por un guión bajo (Ejemplo: juan_perez.py).
-Paso 3: Codificar respetando la estructura obligatoria
+### Paso 3: Codificar respetando la estructura obligatoria
 Para que el menú de main.py reconozca tu juego sin errores, tu archivo DEBE incluir obligatoriamente dos elementos con estos nombres exactos:
 Una variable de texto llamada NOMBRE_DEL_JUEGO.
 Una función principal llamada ejecutar_juego().
