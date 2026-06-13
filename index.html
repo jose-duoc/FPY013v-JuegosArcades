@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade FPY013V - Visor de Código</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --sidebar-bg: #1e293b;
+            --text-color: #f8fafc;
+            --accent-color: #38bdf8;
+            --accent-hover: #0ea5e9;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Panel Izquierdo: Lista de Alumnos */
+        #sidebar {
+            width: 300px;
+            background-color: var(--sidebar-bg);
+            border-right: 1px solid #334155;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-top: 0;
+            color: var(--accent-color);
+            border-bottom: 2px solid #334155;
+            padding-bottom: 10px;
+        }
+
+        #lista-juegos {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        #lista-juegos li {
+            padding: 12px;
+            margin-bottom: 8px;
+            background-color: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+        }
+
+        #lista-juegos li:hover {
+            background-color: var(--accent-color);
+            color: #0f172a;
+            font-weight: bold;
+            transform: translateX(5px);
+        }
+
+        #lista-juegos li.activo {
+            background-color: var(--accent-hover);
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Panel Derecho: Visor de Código */
+        #visor-contenido {
+            flex-grow: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        #header-visor {
+            margin-bottom: 15px;
+        }
+
+        #titulo-juego {
+            margin: 0 0 5px 0;
+            font-size: 1.8rem;
+        }
+
+        #autor-juego {
+            margin: 0;
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        #area-codigo {
+            flex-grow: 1;
+            overflow: auto;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #1d1f21 !important;
+        }
+
+        pre {
+            margin: 0 !important;
+            height: 100%;
+        }
+
+        .loading {
+            text-align: center;
+            color: #94a3b8;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="sidebar">
+        <h2>🕹️ Juegos Entregados</h2>
+        <ul id="lista-juegos">
+            <div class="loading">Cargando repositorio...</div>
+        </ul>
+    </div>
+
+    <div id="visor-contenido">
+        <div id="header-visor">
+            <h1 id="titulo-juego">Selecciona un juego</h1>
+            <p id="autor-juego">Haz clic en el menú izquierdo para revisar el código fuente en Python de tus alumnos.</p>
+        </div>
+        <div id="area-codigo">
+            <pre><code id="codigo-python" class="language-python"># El código aparecerá aquí...</code></pre>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+
+    <script>
+        // CONFIGURACIÓN: Reemplaza con tus datos reales de GitHub
+        const USUARIO_GITHUB = "TU_USUARIO_DE_GITHUB"; 
+        const REPOSITORIO_GITHUB = "NOMBRE_DE_TU_REPOSITORIO";
+
+        const listaUI = document.getElementById('lista-juegos');
+        const tituloUI = document.getElementById('titulo-juego');
+        const autorUI = document.getElementById('autor-juego');
+        const codigoUI = document.getElementById('codigo-python');
+
+        // 1. Leer los archivos de la carpeta 'juegos' usando la API pública de GitHub
+        async function obtenerArchivosJuegos() {
+            const url = `https://api.github.com/repos/${USUARIO_GITHUB}/${REPOSITORIO_GITHUB}/contents/juegos`;
+            
+            try {
+                const respuesta = await fetch(url);
+                if (!respuesta.ok) throw new Error("No se pudo acceder a la carpeta 'juegos'");
+                
+                const archivos = await respuesta.json();
+                listaUI.innerHTML = ""; // Limpiar cargando
+                
+                // Filtrar solo archivos .py que no sean el __init__.py
+                const scriptsPython = archivos.filter(item => item.name.endsWith('.py') && item.name !== '__init__.py');
+                
+                if(scriptsPython.length === 0) {
+                    listaUI.innerHTML = "<div class='loading'>Aún no hay entregas disponibles.</div>";
+                    return;
+                }
+
+                scriptsPython.forEach(archivo => {
+                    const li = document.createElement('li');
+                    // Convertir el nombre de archivo 'juan_perez.py' en algo limpio 'Juan perez'
+                    const nombreLimpio = archivo.name.replace('.py', '').replace('_', ' ');
+                    li.textContent = nombreLimpio.toUpperCase();
+                    
+                    li.addEventListener('click', () => {
+                        // Cambiar estado activo en el menú
+                        document.querySelectorAll('#lista-juegos li').forEach(el => el.classList.remove('activo'));
+                        li.classList.add('activo');
+                        // Cargar el código fuente
+                        cargarCodigoFuente(archivo.download_url, nombreLimpio, archivo.name);
+                    });
+                    
+                    listaUI.appendChild(li);
+                });
+
+            } catch (error) {
+                listaUI.innerHTML = `<div class='loading' style='color: #ef4444;'>❌ Error: ${error.message}</div>`;
+            }
+        }
+
+        // 2. Descargar el texto plano del script e incrustarlo en el visor
+        async function cargarCodigoFuente(urlDescarga, estudiante, nombreArchivo) {
+            tituloUI.textContent = `📄 ${nombreArchivo}`;
+            autorUI.textContent = `Código desarrollado por: ${estudiante}`;
+            codigoUI.textContent = "# Cargando código fuente...";
+            Prism.highlightElement(codigoUI);
+
+            try {
+                const respuesta = await fetch(urlDescarga);
+                const codigoTexto = await respuesta.text();
+                
+                // Asignar el texto y forzar a la librería a pintarlo como Python
+                codigoUI.textContent = codigoTexto;
+                Prism.highlightElement(codigoUI);
+            } catch (error) {
+                codigoUI.textContent = `# Error al cargar el archivo: ${error.message}`;
+                Prism.highlightElement(codigoUI);
+            }
+        }
+
+        // Inicializar el script al cargar la página
+        obtenerArchivosJuegos();
+    </script>
+</body>
+</html>
