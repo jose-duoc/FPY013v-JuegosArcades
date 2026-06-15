@@ -321,7 +321,7 @@
             // Inyectar la simulación de input de JS al ecosistema de Python
             pyodideInstance.registerJsModule("js_input", { pedir_datos: simularInput });
             
-            // Pasamos de forma segura el código directo a través de la memoria global compartida de JavaScript
+            // Pasamos el string limpio a través de la memoria global de JS de manera segura
             window.codigoAlumnoTemporal = codigoActual;
             
             const wrapperCodigo = `
@@ -339,19 +339,20 @@ builtins.input = custom_input
 # Ejecutar el código del estudiante
 async def inicio():
     try:
-        # Recuperamos la cadena de texto limpia sin lidiar con escapes de comillas triples
+        # Recuperamos la cadena de texto original directo desde la memoria global de JS
         codigo_raw = js.window.codigoAlumnoTemporal
         
         namespace = {}
         exec(codigo_raw, namespace)
         
-        # Verificar y ejecutar la función requerida
+        # Verificar y ejecutar la función requerida de los alumnos
         if "ejecutar_juego" in namespace:
             func = namespace["ejecutar_juego"]
             if asyncio.iscoroutinefunction(func):
                 await func()
             else:
-                # Resolvemos la asincronía del input usando el manejador de corrutinas nativo de Pyodide
+                # Si es una función síncrona normal pero gatilla un input() que ahora es asíncrono,
+                # usamos el puente de corrutinas interno de Pyodide para procesarla adecuadamente
                 from pyodide.ffi import Coroutine
                 resultado = func()
                 if isinstance(resultado, Coroutine):
@@ -368,7 +369,7 @@ await inicio()
             try {
                 await pyodideInstance.runPythonAsync(wrapperCodigo);
             } catch (err) {
-                consolaUI.textContent += `\n❌ Error crítico: ${err.message}`;
+                consolaUI.textContent += `\n❌ Error crítico en JS: ${err.message}`;
             } finally {
                 btnRun.disabled = false;
                 inputUsuario.disabled = true;
